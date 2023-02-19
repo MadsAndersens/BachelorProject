@@ -23,3 +23,14 @@ def trim_image(image,mask):
 
     return image
 
+def get_none_faulty_images():
+    """ Returns a list of all the none faulty images. """
+    none_faulty_images = []
+    img_dirs = os.listdir(f'{base_dir}/BachelorProject/Data/Serie1_raw_14Feb/CellsGS')
+    faults = os.listdir(f'{base_dir}/BachelorProject/Data/Serie1_raw_14Feb/MaskGT')
+    for img in img_dirs:
+        if img not in faults:
+            none_faulty_images.append(img)
+    return none_faulty_images
+
+

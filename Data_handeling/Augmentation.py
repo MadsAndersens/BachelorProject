@@ -8,14 +8,16 @@ from data_formatting import create_data_set
 from utils import get_image_name, trim_image, base_dir
 
 class CopyPasteAugmentation(object):
-    def __init__(self,fault_database,probs,base_dir,enable_plot = False):
+    def __init__(self,fault_database,base_dir,enable_plot = False):
         self.fault_database = fault_database
-        self.probs = probs
         self.enable_plot = enable_plot
         self.base_dir = base_dir
 
     def get_augmentet_image(self,image,category):
-        """ Return a random copy-paste augmentation given the image and the category of the fault"""
+        """ Return a random copy-paste augmentation given the image and the category of the fault
+         you want to augment into the other image
+         """
+
         if type(image) == 'numpy.ndarray':
             image = Image.fromarray(image)
         org_image = image.copy()
@@ -76,8 +78,8 @@ if __name__ == '__main__':
                                 probs=0.5,
                                 base_dir=base_dir,
                                 enable_plot=True)
-    image = Image.open(f'/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/Serie1_raw_14Feb/CellsGS/Serie_1_ImageGS_-5_4083_Cell_Row6_Col_3.png')
-    im = cpa.get_augmentet_image(image=image, category='Crack A')
+    image = Image.open(f'/BachelorProject/Data/Serie1_raw_14Feb/CellsGS/Serie_1_ImageGS_-5_4083_Cell_Row6_Col_3.png')
+    im = cpa.get_augmentet_image(image=image, category='CrackA')
     #Display the image
     plt.imshow(np.array(im),cmap = 'gray')
     plt.show()

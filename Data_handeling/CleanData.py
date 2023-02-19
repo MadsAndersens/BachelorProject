@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.io import loadmat
 
 # Define the path to the data
-path = f'/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/Serie1_raw_14Feb/MaskGT'
+path = f'/BachelorProject/Data/Serie1_raw_14Feb/MaskGT'
 dir = os.listdir(path)
 
 # Function for loading the mat files

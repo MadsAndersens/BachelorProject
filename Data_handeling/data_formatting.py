@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.io import loadmat
 import os
 import random
-from utils import get_image_name, trim_image
+from utils import get_image_name, trim_image, base_dir
 
 def create_data_set():
     """"
@@ -14,7 +14,7 @@ def create_data_set():
     """
     # Get the labels from the .mat files
     MaskGT = f'/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/Serie1_raw_14Feb/MaskGT'
-    base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData'
+
 
     labels = list(sorted(os.listdir(os.path.join(MaskGT))))
 
@@ -29,7 +29,7 @@ def create_data_set():
                     'Crack C':[],
                     'Finger Failure':[]
                     }
-    base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData'
+    #base_dir = '/'
     lab = []
     # loop through each of the .mat files
     for fault in labels:
@@ -51,9 +51,9 @@ def create_data_set():
                 crop = trim_image(img,mask[:,:,idx] if len(mask.shape)>2 else mask)
                 cropped_set[i[0]].append(crop)
                 if img_name not in fault_set['Crack A'].keys():
-                    fault_set['Crack A'][img_name] = [(i[0],mask[:,:,idx] if len(mask.shape)>2 else mask)]
+                    fault_set['Crack A'][img_name] = [(i[0],mask[:,:,idx] if len(mask.shape) > 2 else mask)]
                 else:
-                    fault_set['Crack A'][img_name].append((i[0],mask[:,:,idx] if len(mask.shape)>2 else mask))
+                    fault_set['Crack A'][img_name].append((i[0],mask[:,:,idx] if len(mask.shape) > 2 else mask))
             elif i[0] == 'Crack B':
                 # Add the crop to the cropped data_base:
                 crop = trim_image(img,mask[:,:,idx] if len(mask.shape)>2 else mask)
@@ -83,4 +83,5 @@ def create_data_set():
 
 if __name__ == '__main__':
     fault_set,cropped_set = create_data_set()
-    print(fault_set['Crack A']['-10_4081_Cell_Row4_Col_2'][0][0])
+
+    #print(fault_set['CrackA']['-10_4081_Cell_Row4_Col_2'][0][0])
