@@ -3,23 +3,33 @@ from PIL import Image
 from utils import base_dir, get_image_name
 from scipy.io import loadmat
 import pandas as pd
+from tqdm import tqdm
 
 def sort_data():
     """ Sort the data into the correct folders. """
     # Get the names of the images
     folders = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier')
+    folders = sorted(folders)
     data_set = pd.DataFrame(columns=['ImageDir', 'Label','MaskDir'])
 
-    for series in folders:
-        images = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/{series}/CellsCorr')
-        gt_dirs = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/{series}/MaskGT')
+    # Loop through the folders
+    for series in tqdm(folders):
+        # Skip the .DS_Store file
+        if series == '.DS_Store':
+            continue
+
+        # Get the names of the images and the ground truth
+        images = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr')
+        gt_dirs = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/MaskGT')
+
+        # Loop through the images
         for image in images:
             # Get the name of the image
             image_name = get_image_name(image)
-            gt_name = f'{gt_dirs[0][:17]}{image_name}.mat'
+            gt_name = f'{gt_dirs[0][:17]}{image_name}.mat' # Get the name of the ground truth file
             if gt_name in gt_dirs:
                 # load the matlab file
-                f = loadmat(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/{series}/MaskGT/{gt_name}')
+                f = loadmat(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/MaskGT/{gt_name}')
 
                 # Get the mask and the label
                 mask = f['GTMask']*255
@@ -41,14 +51,14 @@ def sort_data():
 
                     # Add the data to the data set
                     temp = pd.DataFrame({'ImageDir': [
-                        f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/{series}/CellsCorr/{image}'],
+                        f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
                                          'Label': [lab_name],
                                          'MaskDir': [mask_dir]})
                     data_set = pd.concat([data_set, temp])
 
             else:
                 # Add the data to the data set
-                temp = pd.DataFrame({'ImageDir': [f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/{series}/CellsCorr/{image}'],
+                temp = pd.DataFrame({'ImageDir': [f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
                                     'Label': ['Negative'],
                                     'MaskDir': [None]})
                 data_set = pd.concat([data_set,temp])
