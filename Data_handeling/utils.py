@@ -7,7 +7,7 @@ from PIL import Image
 base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData'
 
 def get_image_name(file_name):
-    return file_name[17:-4]
+    return file_name[18:-4]
 
 def trim_image(image,mask):
     """ Returns a trimmed down image of only the mask so it is ready for copy-pasting into the other image"""
