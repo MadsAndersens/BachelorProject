@@ -1,13 +1,10 @@
 import pandas as pd
-from Augmentations import GaussianCopyPaste
+from BachelorProject.Data_handeling.DataAugmentations.Augmentations import GaussianCopyPaste
 import numpy as np
-from PIL import Image, ImageFilter
-from data_formatting import create_data_set
-from utils import get_image_name, trim_image, base_dir, get_none_faulty_images
-import random
+from PIL import Image
+from utils import base_dir
 from tqdm import tqdm
 from csv import DictWriter
-import csv
 
 
 class Upsampler:

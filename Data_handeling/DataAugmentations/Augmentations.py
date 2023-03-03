@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import random
 from matplotlib import pyplot as plt
-from cv2 import seamlessClone
+from PoisonBlend import blend
 import cv2
 
 class BaseAugmentation:
@@ -30,7 +30,8 @@ class BaseAugmentation:
     def get_random_placement(self, image):
         """" Get at random valid placement in the image for the crop, so that the crop is not outside the image. """
         dim = np.array(image).shape
-        x,y = random.randint(0, dim[0]), random.randint(0, dim[1])
+        x,y = random.randint(0+120, dim[0]-120), random.randint(0+120, dim[1]-120)
+        print((x,y))
         return x, y
 
     def get_random_rotation(self,angels=[0,180]):
@@ -125,57 +126,37 @@ class PoisonCopyPaste(BaseAugmentation):
         """
 
         # Convert images to float32
-        image = np.array(image, dtype=np.uint8)
-        image_with_fail = np.array(image_with_fail, dtype=np.uint8)
-        image_with_fail_mask = np.array(image_with_fail_mask, dtype=np.uint8)
-        image_with_fail_mask = image_with_fail_mask*np.uint8(255)
+        img_target, img_source, img_mask = self.format_images(image,image_with_fail,image_with_fail_mask)
+        augmented_image = blend(img_target,img_source,img_mask,center)
+        augmented_image = Image.fromarray(augmented_image[:,:,0])
 
-        image = cv2.resize(image, (image_with_fail.shape[1], image_with_fail.shape[0]))
-        image = cv2.seamlessClone(image_with_fail, image, image_with_fail_mask, (143,143), cv2.NORMAL_CLONE)
+        return augmented_image.copy()
 
-        #Convert back to PIL image
-        image = Image.fromarray(image.astype(np.uint8))
-        return image.copy()
+    def format_images(self,image,image_with_fail,image_with_fail_mask):
+        """
+        This method formats the images, such that they can be parsed directly to the blend function.
+        image: PIL image of the image to be blended into
+        image_with_fail: image containing the fualt which is to be cropped out.
+        image_with_fail_mask: the mask containing the region which is to be cropped out and pasted.
+        """
 
-    def pad_images2_size(self,img1,img2,mask):
-        """ This function pads two images into the same size"""
-        img1 = np.array(img1)
-        img2 = np.array(img2)
-        mask = np.array(mask)
+        img_mask = np.array(image_with_fail_mask)
+        img_mask.flags.writeable = True
+        # img_mask = np.expand_dims(img_mask, axis=2)
 
-        # Get the size of the images
-        width1, height1 = img1.shape
-        width2, height2 = img2.shape
-        width_mask, height_mask = mask.shape
+        img_source = np.array(image_with_fail)
+        img_source.flags.writeable = True
+        img_source = np.expand_dims(img_source, axis=2)
 
-        # Get the max size
-        max_width = max(width1,width2)
-        max_height = max(height1,height2)
+        img_target = np.array(image)
+        img_target.flags.writeable = True
+        img_target = np.expand_dims(img_target, axis=2)
 
-        # Create the new images
-        new_img1 = np.zeros((max_width,max_height))
-        new_img2 = np.zeros((max_width,max_height))
-        new_mask = np.zeros((max_width,max_height))
-
-        # Get the difference in size
-        width_diff1 = max_width - width1
-        height_diff1 = max_height - height1
-        width_diff2 = max_width - width2
-        height_diff2 = max_height - height2
-
-
-
-        # Pad the images
-        new_img1[width_diff1:,height_diff1:] = img1
-        new_img2[width_diff2:,height_diff2:] = img2
-        new_mask[width_diff2:,height_diff2:] = mask
-
-        return new_img1,new_img2,new_mask
-
-
+        return img_target, img_source, img_mask
 
 if __name__ == '__main__':
-    random.seed(2)
+    random.seed(410)
+
     GausCP = PoisonCopyPaste()#GaussianCopyPaste(blur=5)
     #Poisson_CP = PoisonCopyPaste()
     image_dir = GausCP.no_faults.index[0]
