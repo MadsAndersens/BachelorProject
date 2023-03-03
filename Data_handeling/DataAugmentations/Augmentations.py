@@ -7,7 +7,7 @@ from PoisonBlend import blend
 import cv2
 
 class BaseAugmentation:
-    """ Base class for all coustoum augmentations that will be used in the project. """
+    """ Base class for all custom augmentations that will be used in the project. """
     def __init__(self):
         self.data_set_csv_path = '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/DataSet.csv'
         self.data_set_csv = pd.read_csv(self.data_set_csv_path).set_index('ImageDir')
@@ -46,7 +46,8 @@ class BaseAugmentation:
 
     def plot_image(self,mask,image_with_fail,augmented_image,org_image):
         # Bare for at test
-        fig, ax = plt.subplots(1, 4, figsize=(15, 20))
+        fig, ax = plt.subplots(1, 4, figsize=(20, 5))
+        fig.suptitle(f'{self}', fontsize=16)
         ax[0].imshow(mask, cmap='gray')
         ax[0].set_title("Mask")
         ax[1].imshow(np.array(image_with_fail), cmap='gray')
@@ -127,7 +128,7 @@ class PoisonCopyPaste(BaseAugmentation):
 
         # Convert images to float32
         img_target, img_source, img_mask = self.format_images(image,image_with_fail,image_with_fail_mask)
-        augmented_image = blend(img_target,img_source,img_mask,center)
+        augmented_image = blend(img_target,img_source,img_mask,(0,0))
         augmented_image = Image.fromarray(augmented_image[:,:,0])
 
         return augmented_image.copy()
@@ -136,7 +137,7 @@ class PoisonCopyPaste(BaseAugmentation):
         """
         This method formats the images, such that they can be parsed directly to the blend function.
         image: PIL image of the image to be blended into
-        image_with_fail: image containing the fualt which is to be cropped out.
+        image_with_fail: image containing the fault which is to be cropped out.
         image_with_fail_mask: the mask containing the region which is to be cropped out and pasted.
         """
 
@@ -149,13 +150,17 @@ class PoisonCopyPaste(BaseAugmentation):
         img_source = np.expand_dims(img_source, axis=2)
 
         img_target = np.array(image)
+        img_target = cv2.resize(img_target, (img_source.shape[1], img_source.shape[0])) #resize the target to the size of the source
         img_target.flags.writeable = True
         img_target = np.expand_dims(img_target, axis=2)
 
         return img_target, img_source, img_mask
 
+    def __repr__(self):
+        return "Poisson Copy Paste"
+
 if __name__ == '__main__':
-    random.seed(410)
+    random.seed(48)
 
     GausCP = PoisonCopyPaste()#GaussianCopyPaste(blur=5)
     #Poisson_CP = PoisonCopyPaste()
