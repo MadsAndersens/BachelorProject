@@ -5,7 +5,7 @@ from scipy.io import loadmat
 import pandas as pd
 from tqdm import tqdm
 
-def sort_data():
+def sort_data(mask_threshold ):
     """ Sort the data into the correct folders. """
     # Get the names of the images
     folders = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier')

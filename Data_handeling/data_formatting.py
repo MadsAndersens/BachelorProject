@@ -79,7 +79,7 @@ def create_data_set():
                 else:
                     fault_set['Finger Failure'][img_name].append((i[0],mask[:,:,idx] if len(mask.shape)>2 else mask))
 
-    return fault_set,cropped_set
+    return fault_set, cropped_set
 
 if __name__ == '__main__':
     fault_set,cropped_set = create_data_set()
