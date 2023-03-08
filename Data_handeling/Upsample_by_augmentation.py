@@ -1,5 +1,5 @@
 import pandas as pd
-from BachelorProject.Data_handeling.DataAugmentations.Augmentations import GaussianCopyPaste
+from BachelorProject.Data_handeling.DataAugmentations.Augmentations import GaussianCopyPaste,PoisonCopyPaste
 import numpy as np
 from PIL import Image
 from utils import base_dir
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     # Create upsample object
     data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/DataSet.csv')
 
-    augmentation = GaussianCopyPaste()
+    augmentation = PoisonCopyPaste() #GaussianCopyPaste()
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample

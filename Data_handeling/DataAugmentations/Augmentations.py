@@ -3,8 +3,10 @@ import numpy as np
 import pandas as pd
 import random
 from matplotlib import pyplot as plt
-from PoisonBlend import blend
+#from PoisonBlend import blend
 import cv2
+from BachelorProject.image_poisson_blending import load_image, blend_image, preprocess
+
 
 class BaseAugmentation:
     """ Base class for all custom augmentations that will be used in the project. """
@@ -94,6 +96,8 @@ class PoisonCopyPaste(BaseAugmentation):
 
     def __init__(self):
         super().__init__()
+        self.BLEND_TYPE = 2
+        self.GRAD_MIX = True
 
     def augment_image(self,image,category,plot_image=False):
         """ Augment the image with a random image from the category."""
@@ -118,18 +122,27 @@ class PoisonCopyPaste(BaseAugmentation):
         if plot_image:
             self.plot_image(image_with_fail_mask,image_with_fail,image,org_image)
 
-        return image.copy()
+        return image.copy(),image_with_fail_path
 
-    def poisson_blend_images(self,image,image_with_fail,image_with_fail_mask,center):
+    def poisson_blend_images(self,image,image_with_fail,image_with_fail_mask,offset):
         """
         This implementation utilieses the openCV poisson blending function (seamlessClone) to blend a region of one image
         onto the other. The mask is used to define the region of the image to be blended.
         """
 
-        # Convert images to float32
-        img_target, img_source, img_mask = self.format_images(image,image_with_fail,image_with_fail_mask)
-        augmented_image = blend(img_target,img_source,img_mask,(0,0))
-        augmented_image = Image.fromarray(augmented_image[:,:,0])
+        # ready data
+        image = np.array(image)
+        image_with_fail = np.array(image_with_fail)
+        image_with_fail_mask = np.array(image_with_fail_mask)
+
+        #Poison bledning
+        image_dat = load_image.load_image(image_with_fail, image_with_fail_mask, image, (-1, -1))
+        image_dat = preprocess.preprocess(image_dat)
+        final_image = blend_image.blend_image(image_dat, self.BLEND_TYPE, self.GRAD_MIX)
+        final_image = final_image*255
+        augmented_image = Image.fromarray(final_image[:,:,0].astype(np.uint8))
+        #plot_image(self,mask,image_with_fail,augmented_image,org_image):
+        self.plot_image(image_with_fail_mask,image_with_fail,final_image,image)
 
         return augmented_image.copy()
 
@@ -160,13 +173,14 @@ class PoisonCopyPaste(BaseAugmentation):
         return "Poisson Copy Paste"
 
 if __name__ == '__main__':
-    random.seed(48)
+    random.seed(15)
+
 
     GausCP = PoisonCopyPaste()#GaussianCopyPaste(blur=5)
     #Poisson_CP = PoisonCopyPaste()
     image_dir = GausCP.no_faults.index[0]
     image = GausCP.load_image(image_dir)
-    image = GausCP.augment_image(image,'Finger Failure',plot_image=True)
+    image = GausCP.augment_image(image,'Crack A',plot_image=True)
     #image.show()
 
 
