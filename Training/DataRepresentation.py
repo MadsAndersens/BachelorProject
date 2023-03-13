@@ -18,7 +18,7 @@ from PIL import Image
 data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/DataSet.csv')
 
 # Split the data into train and test sets with sklearn
-train_set, test_set = train_test_split(data_set, test_size=0.2, random_state=42)
+train_set, test_set = train_test_split(data_set, test_size=0.4, random_state=42)
 
 # Create a class for the data set
 class SolarELData(Dataset):
@@ -60,9 +60,20 @@ class SolarELData(Dataset):
             label = torch.tensor([0, 0, 0, 0, 1], dtype=torch.float32)
         return label
 
+#Transforms
+transform_train = transforms.Compose(
+    [
+     transforms.RandomHorizontalFlip(),
+     transforms.RandomVerticalFlip(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+test_transform = transforms.Compose(
+    [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+
 # Create the data sets
-train_data = SolarELData(train_set)
-test_data = SolarELData(test_set)
+train_data = SolarELData(train_set, transform=transform_train)
+test_data = SolarELData(test_set, transform=test_transform)
 
 # Create the data loaders
 #train_loader = DataLoader(train_data, batch_size=4, shuffle=True, num_workers=2)
