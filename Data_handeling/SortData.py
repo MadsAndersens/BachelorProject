@@ -4,8 +4,9 @@ from utils import base_dir, get_image_name
 from scipy.io import loadmat
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
 
-def sort_data(mask_threshold ):
+def sort_data(mask_threshold=150):
     """ Sort the data into the correct folders. """
     # Get the names of the images
     folders = os.listdir(f'{base_dir}/BachelorProject/Data/VitusData/Serier')
@@ -41,20 +42,20 @@ def sort_data(mask_threshold ):
             if mask is not None:
                 # Loop through the labels and save the mask
                 for idx, lab in enumerate(label):
+                    if np.sum(mask[:,:,idx] if len(mask.shape) > 2 else mask) >= mask_threshold:
+                        # Get the name of the label
+                        lab_name = ''.join(lab[0].split(' '))
+                        mask_dir = f'{base_dir}/BachelorProject/Data/VitusData/Masks/{image_name}_{lab_name}_{idx}.png'
 
-                    # Get the name of the label
-                    lab_name = lab[0]
-                    mask_dir = f'{base_dir}/BachelorProject/Data/VitusData/Masks/{image_name}_{lab_name}_{idx}.png'
+                        # Save the mask
+                        Image.fromarray(mask[:,:,idx] if len(mask.shape) > 2 else mask).save(mask_dir)
 
-                    # Save the mask
-                    Image.fromarray(mask[:,:,idx] if len(mask.shape) > 2 else mask).save(mask_dir)
-
-                    # Add the data to the data set
-                    temp = pd.DataFrame({'ImageDir': [
-                        f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
-                                         'Label': [lab_name],
-                                         'MaskDir': [mask_dir]})
-                    data_set = pd.concat([data_set, temp])
+                        # Add the data to the data set
+                        temp = pd.DataFrame({'ImageDir': [
+                            f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
+                                             'Label': [lab_name],
+                                             'MaskDir': [mask_dir]})
+                        data_set = pd.concat([data_set, temp])
 
             else:
                 # Add the data to the data set
@@ -68,4 +69,4 @@ def sort_data(mask_threshold ):
 
 
 if __name__ == '__main__':
-    sort_data()
+    sort_data(mask_threshold=150)

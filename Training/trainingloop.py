@@ -20,22 +20,29 @@ batch_size_test = 4
 learning_rate = 0.01
 momentum = 0.5
 decay_gamma = 0.9
-loss_weights = torch.tensor([1-0.1,1-0.1,1-0.1,1-0.1,1-0.9])
+label_smoothing = 0.1
+loss_weights = torch.tensor(
+                            [1-0.1, # Crack A
+                             1-0.1, # Crack B
+                             1-0.1, # Crack C
+                             1-0.1, # Finger Failure
+                             1-0.9] # Negative
+                            )
 
 #Init wandb
 # start a new wandb run to track this script
-#wandb.init(
-#    # set the wandb project where this run will be logged
-#    project="BachelorProject",
-#
-#    # track hyperparameters and run metadata
-#    config={
-#        "learning_rate": learning_rate,
-#        "architecture": "CNN",
-#        "dataset": "FaultyCells",
-#        "epochs": n_epochs,
-#    }
-#)
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="BachelorProject",
+
+    # track hyperparameters and run metadata
+    config={
+        "learning_rate": learning_rate,
+        "architecture": "CNN",
+        "dataset": "FaultyCells",
+        "epochs": n_epochs,
+    }
+)
 
 #Set device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -66,11 +73,31 @@ class ResnetModules(nn.Module):
         x = self.resnet(x)
         return x
 
+class VGGModules(nn.Module):
+    def __init__(self,model):
+        super(VGGModules, self).__init__()
+        self.vgg = model
+        self.vgg.classifier[6] = nn.Linear(4096, 5)
+
+    def forward(self, x):
+        x = self.vgg(x)
+        return x
+
+class InceptionModules(nn.Module):
+    def __init__(self,model):
+        super(InceptionModules, self).__init__()
+        self.inception = model
+        self.inception.fc = nn.Linear(2048, 5)
+
+    def forward(self, x):
+        x = self.inception(x)
+        return x
+
 
 model = ResnetModules(model).to(device)
 
 # Define the loss function and optimizer
-criterion = nn.CrossEntropyLoss(weight = loss_weights)
+criterion = nn.CrossEntropyLoss(weight = loss_weights,label_smoothing=label_smoothing)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=decay_gamma)
 
@@ -116,16 +143,16 @@ def train_model(model,train_loader,validation_loader,optimizer,loss_fn,n_epochs,
         print(f1_score_val)
 
 
-        #wandb.log({"train_loss": train_loss,
-        #           "val_loss": loss_val,
-        #           "epoch": epoch,
-        #           "F1": f1_score_val})
+        wandb.log({"train_loss": train_loss,
+                   "val_loss": loss_val,
+                   "epoch": epoch,
+                   "F1": f1_score_val})
 
     scheduler.step()
 
 if __name__ == '__main__':
-   # Train the model
+    # Train the model
     train_model(model,train_loader,test_loader,optimizer,criterion,n_epochs,device)
-    #wandb.finish()
+    wandb.finish()
 
 

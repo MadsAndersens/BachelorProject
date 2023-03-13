@@ -33,7 +33,13 @@ def write_csv(gt):
     df.to_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/Mask.csv', index=True, header=True)
 
 
+def get_mask_name(mask_path):
+
+
+
 if __name__ == '__main__':
-    gt = load_GT(dir)
-    mask = check_mask(gt, 100)
-    write_csv(gt)
+
+
+    #gt = load_GT(dir)
+    #mask = check_mask(gt, 100)
+    #write_csv(gt)
