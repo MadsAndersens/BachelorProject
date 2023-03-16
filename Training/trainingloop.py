@@ -49,6 +49,7 @@ class SolarELData(Dataset):
         return len(self.data_set)
 
     def __getitem__(self, idx):
+        #print(self.data_set)
         img_name = self.data_set.iloc[idx, 0]
         image = Image.open(img_name)
         image = ToTensor()(image)
@@ -219,8 +220,8 @@ def train_model(model,train_loader,validation_loader,optimizer,loss_fn,n_epochs,
 
     scheduler.step()
 
-train_model(model,train_loader,test_loader,optimizer,criterion,n_epochs,device)
-wandb.finish()
+#train_model(model,train_loader,test_loader,optimizer,criterion,n_epochs,device)
+#wandb.finish()
 
 
 
