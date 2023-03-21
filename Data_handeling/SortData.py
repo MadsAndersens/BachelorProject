@@ -42,7 +42,7 @@ def sort_data(mask_threshold=150):
                 f = loadmat(f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/MaskGT/{gt_name}')
 
                 # Get the mask and the label
-                mask = f['GTMask']*255
+                mask = f['GTMask']
                 label = f['GTLabel'].ravel()
             else:
                 mask = None
@@ -53,12 +53,13 @@ def sort_data(mask_threshold=150):
                 labs_t,masks_t = [],[]
                 for idx, lab in enumerate(label):
                     if np.sum(mask[:,:,idx] if len(mask.shape) > 2 else mask) >= mask_threshold:
+                        mask = mask
                         # Get the name of the label
                         lab_name = ''.join(lab[0].split(' '))
                         mask_dir = f'{base_dir}/BachelorProject/Data/VitusData/Masks/{image_name}_{lab_name}_{idx}.png'
 
                         # Save the mask
-                        Image.fromarray(mask[:,:,idx] if len(mask.shape) > 2 else mask).save(mask_dir)
+                        Image.fromarray(mask[:,:,idx]*255 if len(mask.shape) > 2 else mask*255).save(mask_dir)
 
                         #Make a list of mask dirs and lab names to the temporary lists
                         labs_t.append(lab_name)
@@ -68,11 +69,20 @@ def sort_data(mask_threshold=150):
                 # Add the data to the data set
                 labs_t = '__'.join(labs_t)
                 masks_t = '__'.join(masks_t)
-                temp = pd.DataFrame({'ImageDir': [
-                    f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
-                                     'Label': labs_t,
-                                     'MaskDir': masks_t})
-                data_set = pd.concat([data_set, temp])
+                # This takes care of when the mask is not "big enough" then the result will be ''
+                if labs_t != '':
+                    temp = pd.DataFrame({'ImageDir': [
+                        f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
+                                         'Label': labs_t,
+                                         'MaskDir': masks_t})
+                    data_set = pd.concat([data_set, temp])
+
+                else:
+                    temp = pd.DataFrame({'ImageDir': [
+                        f'{base_dir}/BachelorProject/Data/VitusData/Serier/{series}/CellsCorr/{image}'],
+                                         'Label': 'Negative',
+                                         'MaskDir': None})
+                    data_set = pd.concat([data_set, temp])
 
 
 
@@ -90,4 +100,4 @@ def sort_data(mask_threshold=150):
 
 
 if __name__ == '__main__':
-    sort_data(mask_threshold = 150)
+    sort_data(mask_threshold = 2100)

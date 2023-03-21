@@ -11,17 +11,18 @@ from BachelorProject.image_poisson_blending import load_image, blend_image, prep
 class BaseAugmentation:
     """ Base class for all custom augmentations that will be used in the project. """
     def __init__(self):
-        self.data_set_csv_path = '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/DataSet.csv'
+        self.data_set_csv_path = '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train_expanded.csv'
         self.data_set_csv = pd.read_csv(self.data_set_csv_path).set_index('ImageDir')
-        self.crack_a = self.data_set_csv[self.data_set_csv['Label'] == 'Crack A']
-        self.crack_b = self.data_set_csv[self.data_set_csv['Label'] == 'Crack B']
-        self.crack_c = self.data_set_csv[self.data_set_csv['Label'] == 'Crack C']
-        self.finger_failure = self.data_set_csv[self.data_set_csv['Label'] == 'Finger Failure']
+        self.crack_a = self.data_set_csv[self.data_set_csv['Label'] == 'CrackA']
+        self.crack_b = self.data_set_csv[self.data_set_csv['Label'] == 'CrackB']
+        self.crack_c = self.data_set_csv[self.data_set_csv['Label'] == 'CrackC']
+        self.finger_failure = self.data_set_csv[self.data_set_csv['Label'] == 'FingerFailure']
         self.no_faults = self.data_set_csv[self.data_set_csv['Label'] == 'Negative']
         self.fault_database = {'Crack A': self.crack_a,
                                'Crack B': self.crack_b,
                                'Crack C': self.crack_c,
                                'Finger Failure': self.finger_failure}
+        self.base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/'
 
     def augment_image(self,image,category):
         pass
@@ -39,11 +40,26 @@ class BaseAugmentation:
     def get_random_rotation(self,angels=[0,180]):
         return random.choice(angels)
 
-    def load_mask(self,image_with_fail_path):
-        if str(type(self.data_set_csv.loc[image_with_fail_path, 'MaskDir'])) == "<class 'pandas.core.series.Series'>":
-            mask = self.load_image(self.data_set_csv.loc[image_with_fail_path, 'MaskDir'][0])
+    def load_mask(self,image_with_fail_path,category):
+        category = category.replace(' ', '')
+        if str(type(self.data_set_csv.loc[image_with_fail_path[72:], 'MaskDir'])) == "<class 'pandas.core.series.Series'>":
+            ser = self.data_set_csv.loc[image_with_fail_path[72:]]
+            dirs = ser[ser['Label'] == category]['MaskDir']
+            #full_directory = f'{self.base_dir}{dirs}'
+            mask = self.combine_masks(dirs)
+            #mask = self.load_image(full_directory)
         else:
-            mask = self.load_image(self.data_set_csv.loc[image_with_fail_path, 'MaskDir'])
+            dir = self.data_set_csv.loc[image_with_fail_path[72:], 'MaskDir']
+            full_directory = f'{self.base_dir}{dir}'
+            mask = self.load_image(full_directory)
+        return mask
+
+    def combine_masks(self,dirs):
+        """" If an image has multiple masks, this function combines them into one mask, if the faults are the same """
+        masks = [self.load_image(f'{self.base_dir}{dir}') for dir in dirs]
+        mask = masks[0]
+        for i in range(1,len(masks)):
+            mask = Image.composite(masks[i],mask,masks[i])
         return mask
 
     def plot_image(self,mask,image_with_fail,augmented_image,org_image):
@@ -71,8 +87,8 @@ class GaussianCopyPaste(BaseAugmentation):
         org_image = image.copy()
         # Get a random image from the category
         image_with_fail_path = random.choice(list(self.fault_database[category].index))
-        image_with_fail = self.load_image(image_with_fail_path)
-        image_with_fail_mask = self.load_mask(image_with_fail_path)
+        image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
+        image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
         image_with_fail_mask = image_with_fail_mask.filter(ImageFilter.GaussianBlur(self.blur))
 
         # Get a random placement in the image
@@ -104,8 +120,8 @@ class PoisonCopyPaste(BaseAugmentation):
         org_image = image.copy()
         # Get a random image from the category
         image_with_fail_path = random.choice(list(self.fault_database[category].index))
-        image_with_fail = self.load_image(image_with_fail_path)
-        image_with_fail_mask = self.load_mask(image_with_fail_path)
+        image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
+        image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
 
         # Get a random placement in the image
         x,y = self.get_random_placement(image) # get a valid placement in the image for the crop
@@ -116,7 +132,7 @@ class PoisonCopyPaste(BaseAugmentation):
         image_with_fail_mask = image_with_fail_mask.rotate(rotation,expand = True)
 
         # Paste the image into the image
-        image = self.poisson_blend_images(image,image_with_fail,image_with_fail_mask,(x,y))
+        image = self.poisson_blend_images(image,image_with_fail,image_with_fail_mask,(0,0))
 
 
         if plot_image:
@@ -136,13 +152,13 @@ class PoisonCopyPaste(BaseAugmentation):
         image_with_fail_mask = np.array(image_with_fail_mask)
 
         #Poison bledning
-        image_dat = load_image.load_image(image_with_fail, image_with_fail_mask, image, (-1, -1))
+        image_dat = load_image.load_image(image_with_fail, image_with_fail_mask, image, (0, 0))
         image_dat = preprocess.preprocess(image_dat)
         final_image = blend_image.blend_image(image_dat, self.BLEND_TYPE, self.GRAD_MIX)
         final_image = final_image*255
         augmented_image = Image.fromarray(final_image[:,:,0].astype(np.uint8))
         #plot_image(self,mask,image_with_fail,augmented_image,org_image):
-        self.plot_image(image_with_fail_mask,image_with_fail,final_image,image)
+        #self.plot_image(image_with_fail_mask,image_with_fail,final_image,image)
 
         return augmented_image.copy()
 
@@ -174,8 +190,6 @@ class PoisonCopyPaste(BaseAugmentation):
 
 if __name__ == '__main__':
     random.seed(15)
-
-
     GausCP = PoisonCopyPaste()#GaussianCopyPaste(blur=5)
     #Poisson_CP = PoisonCopyPaste()
     image_dir = GausCP.no_faults.index[0]
