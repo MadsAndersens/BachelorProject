@@ -96,7 +96,7 @@ if __name__ == '__main__':
     # Create upsample object
     data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train_expanded.csv')
 
-    augmentation = PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
+    augmentation = GaussianCopyPaste()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
