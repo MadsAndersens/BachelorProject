@@ -141,6 +141,8 @@ class TruncatedSVDClassifier(BaseEstimator, ClassifierMixin):
         self.inverter = inverter
 
     def fit(self, X, y):
+        # Make the y vector be -1 or 1 instead of 0 or 1
+        y_train = np.where(y == 0, -1, y)
         X_pinv = np.linalg.pinv(X_train)
         A = np.matmul(y_train, X_pinv)
         self.A = A

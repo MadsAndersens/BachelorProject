@@ -64,16 +64,24 @@ class BaseAugmentation:
 
     def plot_image(self,mask,image_with_fail,augmented_image,org_image):
         # Bare for at test
+        fs = 20
         fig, ax = plt.subplots(1, 4, figsize=(20, 5))
-        fig.suptitle(f'{self}', fontsize=16)
+        #fig.suptitle(f'{self}', fontsize=16)
         ax[0].imshow(mask, cmap='gray')
-        ax[0].set_title("Mask")
+        ax[0].set_title("Mask",fontsize=fs)
+        ax[0].axis('off')
+
         ax[1].imshow(np.array(image_with_fail), cmap='gray')
-        ax[1].set_title("Image with fault")
+        ax[1].set_title("Source Image", fontsize=fs)
+        ax[1].axis('off')
+
         ax[2].imshow(np.array(augmented_image), cmap='gray')
-        ax[2].set_title("Augmented Image")
+        ax[2].set_title("Augmented Image", fontsize=fs)
+        ax[2].axis('off')
+
         ax[3].imshow(np.array(org_image), cmap='gray')
-        ax[3].set_title("Original Image")
+        ax[3].set_title("Target Image", fontsize=fs)
+        ax[3].axis('off')
         plt.show()
 
 class GaussianCopyPaste(BaseAugmentation):
@@ -82,7 +90,7 @@ class GaussianCopyPaste(BaseAugmentation):
         super().__init__()
         self.blur = blur
 
-    def augment_image(self,image,category,plot_image=False):
+    def augment_image(self,image,category,plot_image=True):
         """ Augment the image with a random image from the category."""
         org_image = image.copy()
         # Get a random image from the category

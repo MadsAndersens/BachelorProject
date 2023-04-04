@@ -15,6 +15,10 @@ from torchmetrics import F1Score,ConfusionMatrix,ROC,PrecisionRecallCurve
 from sklearn.metrics import ConfusionMatrixDisplay
 import copy
 import wandb
+from torchvision.utils import make_grid
+
+#Import huggin face transformer model for image classification
+from transformers import ViTFeatureExtractor, ViTForImageClassification
 
 # Hyperparameters
 n_epochs = 120
@@ -156,7 +160,10 @@ class SolarELData(Dataset):
         image = transforms.ToTensor()(image)
 
         # Resize the image to 224x224
-        image = transforms.Resize((224, 224))(image)
+        #image = transforms.Resize((224, 224))(image)
+        #pad the image
+        image = self.pad_image(image)
+
         # Make three channels
         image = torch.cat((image, image, image), 0)
 
@@ -168,6 +175,13 @@ class SolarELData(Dataset):
 
         sample = {'image': image, 'label': label}
         return sample
+
+    def pad_image(self,image):
+        max_widt, max_height = 430, 430
+        width, height = image.shape[1], image.shape[2]
+        pad_widt, pad_height = max_widt - width, max_height - height
+        image = transforms.Pad((0, 0, pad_widt, pad_height))(image)
+        return image
 
     def one_hot_encode(self, label):
         # One hot encoding
@@ -222,8 +236,8 @@ class ResnetModules(nn.Module):
         self.resnet = model
         self.out_dim = self.resnet.fc.in_features
         self.resnet.fc = nn.Linear(self.out_dim, 2)
-        # Change input size to be of size 320x320x1
-        #self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # Change input size to be of size 440x440x1
+        self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
     def forward(self, x):
         # Resize image to input size of the model
@@ -249,10 +263,10 @@ class InceptionModules(nn.Module):
         self.inception = model
         self.inception.fc = nn.Linear(2048, 2)
 
-    def forward(self, x):
-        x = self.inception(x)
-        x = nn.Sigmoid()(x)
-        return x
+        #Change the output size of the auxillary classifier
+        self.inception.AuxLogits.fc = nn.Linear(768, 2)
+
+
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=1, gamma=2, reduce=False):
@@ -418,8 +432,8 @@ def train_model(model, train_loader, validation_loader, optimizer, loss_fn, n_ep
     torch.save(best_model.state_dict(), f'Models/Synthetic{architecture}CwBinary')
 
 
-train_model(model, train_loader, val_loader, optimizer, criterion, n_epochs, device)
-wandb.finish()
+# Make a grid that showcases each class and its corresponding image
+
 
 train_model(model, train_loader, val_loader, optimizer, criterion, n_epochs, device)
 wandb.finish()

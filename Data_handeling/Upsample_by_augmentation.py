@@ -100,8 +100,8 @@ if __name__ == '__main__':
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
-    n_upsamples = {'Crack A': 35000,
-                   'Crack B': 35000,
-                   'Crack C': 35000,
-                   'Finger Failure': 35000}
+    n_upsamples = {'Crack A': 0,
+                   'Crack B': 0,
+                   'Crack C': 0,
+                   'Finger Failure': 10}
     upsampler.run_upsample(n_upsamples)
