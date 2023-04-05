@@ -46,12 +46,15 @@ class BaseAugmentation:
             ser = self.data_set_csv.loc[image_with_fail_path[72:]]
             dirs = ser[ser['Label'] == category]['MaskDir']
             #full_directory = f'{self.base_dir}{dirs}'
-            mask = self.combine_masks(dirs)
+            idx = np.random.randint(0,len(dirs))
+            mask_dir = dirs[idx]#self.combine_masks(dirs)
+            full_directory = f'{self.base_dir}{mask_dir}'
+            mask = cv2.imread(full_directory)
             #mask = self.load_image(full_directory)
         else:
             dir = self.data_set_csv.loc[image_with_fail_path[72:], 'MaskDir']
             full_directory = f'{self.base_dir}{dir}'
-            mask = self.load_image(full_directory)
+            mask = cv2.imread(full_directory)#self.load_image(full_directory)
         return mask
 
     def combine_masks(self,dirs):
@@ -123,75 +126,91 @@ class PoisonCopyPaste(BaseAugmentation):
         self.BLEND_TYPE = 2
         self.GRAD_MIX = True
 
-    def augment_image(self,image,category,plot_image=False):
+    def augment_image(self,target_path,category,plot_image=False):
         """ Augment the image with a random image from the category."""
-        org_image = image.copy()
+        #org_image = image.copy()
         # Get a random image from the category
         image_with_fail_path = random.choice(list(self.fault_database[category].index))
-        image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
-        image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
+        #image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
+        #image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
 
-        # Get a random placement in the image
-        x,y = self.get_random_placement(image) # get a valid placement in the image for the crop
+        paths = random.choice(list(self.fault_database[category].index))
 
-        # Get random rotation
-        rotation = self.get_random_rotation()
-        image_with_fail = image_with_fail.rotate(rotation,expand = True)
-        image_with_fail_mask = image_with_fail_mask.rotate(rotation,expand = True)
+        #Get dirs and mask
+        dirsrc = f'{self.base_dir}{random.choice(list(self.fault_database[category].index))}'
+        dirdst = f'{self.base_dir}{target_path}'
+        mask = self.load_mask(dirsrc,category)
 
-        # Paste the image into the image
-        image = self.poisson_blend_images(image,image_with_fail,image_with_fail_mask,(0,0))
+        #Load src and dst
+        src = cv2.imread(dirsrc)
+        dst = cv2.imread(dirdst)
 
+        synthetic_image = None
+        failed = 0
+        while synthetic_image is None:
+            try:
+                synthetic_image = self.poisson_blend(src, dst, mask)
+            except:
+                failed += 1
 
-        if plot_image:
-            self.plot_image(image_with_fail_mask,image_with_fail,image,org_image)
+            if failed > 10000:
+                synthetic_image = src
+                break
+        synthetic_image = Image.fromarray(np.uint8(synthetic_image))
+        return synthetic_image,image_with_fail_path
 
-        return image.copy(),image_with_fail_path
+    def poisson_blend(self,src, dst, mask):
+        mask, src = self.random_rotation_180(mask, src)
+        # print((src.shape,mask.shape))
+        scaled_mask, scaled_src = self.random_scale(src, mask, [0.7, 1])
+        offset = self.random_clone_center(scaled_mask, dst)
+        #print(offset)
+        result = cv2.seamlessClone(scaled_src, dst, scaled_mask, offset, cv2.NORMAL_CLONE)
+        return result
 
-    def poisson_blend_images(self,image,image_with_fail,image_with_fail_mask,offset):
-        """
-        This implementation utilieses the openCV poisson blending function (seamlessClone) to blend a region of one image
-        onto the other. The mask is used to define the region of the image to be blended.
-        """
+    def random_scale(self,image, mask, scale_range):
+        # Generate a random scale factor
+        scale_factor = np.random.uniform(*scale_range)
 
-        # ready data
-        image = np.array(image)
-        image_with_fail = np.array(image_with_fail)
-        image_with_fail_mask = np.array(image_with_fail_mask)
+        # Compute the scaled image
+        scaled_image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
 
-        #Poison bledning
-        image_dat = load_image.load_image(image_with_fail, image_with_fail_mask, image, (0, 0))
-        image_dat = preprocess.preprocess(image_dat)
-        final_image = blend_image.blend_image(image_dat, self.BLEND_TYPE, self.GRAD_MIX)
-        final_image = final_image*255
-        augmented_image = Image.fromarray(final_image[:,:,0].astype(np.uint8))
-        #plot_image(self,mask,image_with_fail,augmented_image,org_image):
-        #self.plot_image(image_with_fail_mask,image_with_fail,final_image,image)
+        # Compute the scaled mask
+        scaled_mask = cv2.resize(mask, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
+        return scaled_mask, scaled_image
 
-        return augmented_image.copy()
+    def random_rotation_180(self,mask, img):
+        # Generate a random angle between 0 and 1
+        angle = np.random.randint(0, 2)
 
-    def format_images(self,image,image_with_fail,image_with_fail_mask):
-        """
-        This method formats the images, such that they can be parsed directly to the blend function.
-        image: PIL image of the image to be blended into
-        image_with_fail: image containing the fault which is to be cropped out.
-        image_with_fail_mask: the mask containing the region which is to be cropped out and pasted.
-        """
+        # Rotate the mask and image by 180 degrees if angle is 1
+        if angle == 1:
+            mask = cv2.rotate(mask, cv2.ROTATE_180)
+            img = cv2.rotate(img, cv2.ROTATE_180)
+            #print('test')
+        return mask, img
 
-        img_mask = np.array(image_with_fail_mask)
-        img_mask.flags.writeable = True
-        # img_mask = np.expand_dims(img_mask, axis=2)
+    def random_clone_center(self,mask, dst):
+        # Get the size of the destination image
+        h, w = dst.shape[:2]
+        height, width, _ = np.where(mask > 0)
 
-        img_source = np.array(image_with_fail)
-        img_source.flags.writeable = True
-        img_source = np.expand_dims(img_source, axis=2)
+        roi_height = (max(height) - min(height)) // 2
+        roi_width = (max(width) - min(width)) // 2
+        #print(roi_height)
+        #print(roi_width)
 
-        img_target = np.array(image)
-        img_target = cv2.resize(img_target, (img_source.shape[1], img_source.shape[0])) #resize the target to the size of the source
-        img_target.flags.writeable = True
-        img_target = np.expand_dims(img_target, axis=2)
+        # Generate a random center point for the cloned region
+        x = np.random.randint(roi_width + 1, w - roi_width - 1)
+        y = np.random.randint(roi_height + 1, h - roi_height - 1)
 
-        return img_target, img_source, img_mask
+        #print(x, y)
+
+        # Add half the width and height of the region to the random point
+        center = (x, y)
+
+        return center
+
 
     def __repr__(self):
         return "Poisson Copy Paste"
@@ -201,8 +220,8 @@ if __name__ == '__main__':
     GausCP = PoisonCopyPaste()#GaussianCopyPaste(blur=5)
     #Poisson_CP = PoisonCopyPaste()
     image_dir = GausCP.no_faults.index[0]
-    image = GausCP.load_image(image_dir)
-    image = GausCP.augment_image(image,'Crack A',plot_image=True)
+    #image = GausCP.load_image(image_dir)
+    image = GausCP.augment_image(image_dir,'Crack A',plot_image=True)
     #image.show()
 
 

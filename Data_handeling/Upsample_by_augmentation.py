@@ -46,7 +46,7 @@ class Upsampler:
          for i in tqdm(range(n)):
             # Create a random augmentation
             image = self.load_image(images[i])
-            aug_image,img_fail_path = self.augmentation.augment_image(image,category)
+            aug_image,img_fail_path = self.augmentation.augment_image(images[i],category)
             # Save the image
             self.save_image(aug_image,
                             category,
@@ -96,12 +96,12 @@ if __name__ == '__main__':
     # Create upsample object
     data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train_expanded.csv')
 
-    augmentation = GaussianCopyPaste()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
+    augmentation = PoisonCopyPaste()#GaussianCopyPaste()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
-    n_upsamples = {'Crack A': 0,
-                   'Crack B': 0,
-                   'Crack C': 0,
-                   'Finger Failure': 10}
+    n_upsamples = {'Crack A': 21325,
+                   'Crack B': 21325,
+                   'Crack C': 21325,
+                   'Finger Failure': 21325}
     upsampler.run_upsample(n_upsamples)
