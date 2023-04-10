@@ -45,8 +45,8 @@ converters = {
     'MaskDir': lambda x: ast.literal_eval(x) if str(x) != 'nan' else x
 }
 # Load the DataSet.csv file
-train_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train.csv', converters=converters)
-val_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train.csv', converters=converters)
+train_set = pd.read_csv('/BachelorProject/Data/VitusData/Train.csv', converters=converters)
+val_set = pd.read_csv('/BachelorProject/Data/VitusData/Train.csv', converters=converters)
 
 
 # train_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train.csv',

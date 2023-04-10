@@ -26,11 +26,11 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split, GridSearchCV
 
 # Load the data
-train_data = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train.csv')
+train_data = pd.read_csv('/BachelorProject/Data/VitusData/Train.csv')
 train_data = train_data.drop(['Unnamed: 0'], axis=1)
-test_data = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Val.csv')
+test_data = pd.read_csv('/BachelorProject/Data/VitusData/Val.csv')
 test_data = test_data.drop(['Unnamed: 0'], axis=1)
-base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/'
+base_dir = '/BachelorProject/Data/'
 # define class labels
 labels = {
     0: 'Negative',

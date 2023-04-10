@@ -6,6 +6,8 @@ from utils import base_dir
 from tqdm import tqdm
 from csv import DictWriter
 
+#Set the seed
+np.random.seed(42)
 
 class Upsampler:
     """
@@ -46,13 +48,16 @@ class Upsampler:
          for i in tqdm(range(n)):
             # Create a random augmentation
             image = self.load_image(images[i])
-            aug_image,img_fail_path = self.augmentation.augment_image(images[i],category)
+            aug_image,img_fail_path,aug_mask = self.augmentation[0].augment_image(images[i],category)
             # Save the image
             self.save_image(aug_image,
                             category,
                             i,
                             images[i],
                             img_fail_path)
+            if len(augmentation) > 1:
+                aug_image, img_fail_path, aug_mask = self.augmentation[1].augment_image(images[i], category)
+
     def load_image(self,image_path):
         """ Load the image from the path, and trim it."""
         return Image.open(f'/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/{image_path}')
@@ -96,12 +101,12 @@ if __name__ == '__main__':
     # Create upsample object
     data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train_expanded.csv')
 
-    augmentation = PoisonCopyPaste()#GaussianCopyPaste()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
+    augmentation = [PoisonCopyPaste()]#[PoisonCopyPaste()]#PoisonCopyPaste()#gaussian_blend()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
-    n_upsamples = {'Crack A': 21325,
-                   'Crack B': 21325,
-                   'Crack C': 21325,
-                   'Finger Failure': 21325}
+    n_upsamples = {'Crack A': 1,
+                   'Crack B': 1,
+                   'Crack C': 1,
+                   'Finger Failure': 1}
     upsampler.run_upsample(n_upsamples)

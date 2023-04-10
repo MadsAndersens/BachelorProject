@@ -35,7 +35,7 @@ converters = {
     'Label': lambda x: ast.literal_eval(x),
     'MaskDir': lambda x: ast.literal_eval(x) if str(x) != 'nan' else x
 }
-root_dir = '/Users/madsandersen/PycharmProjects/BscProjektData/'
+root_dir = '//'
 # Load the DataSet.csv file
 train_set = pd.read_csv(f'{root_dir}BachelorProject/Data/VitusData/Train.csv', converters=converters)
 val_set = pd.read_csv(f'{root_dir}BachelorProject/Data/VitusData/Val.csv', converters=converters)

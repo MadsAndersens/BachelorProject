@@ -7,6 +7,8 @@ from matplotlib import pyplot as plt
 import cv2
 from BachelorProject.image_poisson_blending import load_image, blend_image, preprocess
 
+#set the seed
+np.random.seed(42)
 
 class BaseAugmentation:
     """ Base class for all custom augmentations that will be used in the project. """
@@ -93,31 +95,149 @@ class GaussianCopyPaste(BaseAugmentation):
         super().__init__()
         self.blur = blur
 
-    def augment_image(self,image,category,plot_image=True):
+    def augment_image(self,target_path,category,plot_image=False):
         """ Augment the image with a random image from the category."""
-        org_image = image.copy()
+        #org_image = image.copy()
         # Get a random image from the category
         image_with_fail_path = random.choice(list(self.fault_database[category].index))
-        image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
-        image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
-        image_with_fail_mask = image_with_fail_mask.filter(ImageFilter.GaussianBlur(self.blur))
+        #image_with_fail = self.load_image(f'{self.base_dir}{image_with_fail_path}')
+        #image_with_fail_mask = self.load_mask(f'{self.base_dir}{image_with_fail_path}',category)
 
-        # Get a random placement in the image
-        #x,y = self.get_random_placement(image) # get a valid placement in the image for the crop
+        paths = random.choice(list(self.fault_database[category].index))
 
-        # Get random rotation
-        rotation = self.get_random_rotation()
-        image_with_fail = image_with_fail.rotate(rotation,expand = True)
-        image_with_fail_mask = image_with_fail_mask.rotate(rotation,expand = True)
+        #Get dirs and mask
+        dirsrc = f'{self.base_dir}{random.choice(list(self.fault_database[category].index))}'
+        dirdst = f'{self.base_dir}{target_path}'
+        mask = self.load_mask(dirsrc,category)
 
-        # Paste the image into the image
-        image.paste(im=image_with_fail, mask=image_with_fail_mask)
+        #Load src and dst
+        src = cv2.imread(dirsrc)
+        dst = cv2.imread(dirdst)
 
+        synthetic_image = None
+        failed = 0
+        while synthetic_image is None:
+            try:
+                synthetic_image,synthetic_mask = self.gaussian_blend(src, dst, mask)
+            except:
+                failed += 1
+
+            if failed > 10000:
+                synthetic_image = src
+                break
+        print(failed)
+        #synthetic_image = Image.fromarray(np.uint8(synthetic_image))
         if plot_image:
-            self.plot_image(image_with_fail_mask,image_with_fail,image,org_image)
+            self.plot_image(mask,src,synthetic_image,dst)
+        return synthetic_image,image_with_fail_path,synthetic_mask
 
-        return image.copy(),image_with_fail_path
+    def eq_guassian_blend(self,src,dst,mask,offset,blur=5):
 
+        # Get the new random center
+        center_blob = self.find_blob_center(mask)
+
+        offset = (offset[0]-center_blob[0],offset[1]-center_blob[1])
+
+        src_pil = Image.fromarray(src)
+        mask_pil = Image.fromarray(mask[:, :, 0])
+        dst_pil = Image.fromarray(dst)
+
+        # Blend the images
+        dst_pil.paste(im=src_pil, mask=mask_pil, box=offset)
+        return dst_pil.copy(), mask_pil.copy(),offset
+
+    def gaussian_blend(self,src, dst, mask, blur=5):
+        """ Blend src and dst using a gaussian mask. """
+        #Randomly rotate the mask and src
+        mask, src = self.random_rotation_180(mask, src)
+
+        #Random scale the mask and src
+        scaled_mask, scaled_src = self.random_scale(src, mask, [0.7, 1])
+
+        # Apply gasussian blur to mask
+        mask = cv2.GaussianBlur(mask, (blur, blur), blur)
+
+        # Find the center of the mask
+        center_blob = self.find_blob_center(mask)
+
+        # Get the new random center
+        center = self.random_clone_center(scaled_mask, dst)
+
+        #Find the offset of the mask to the new center
+        offset = (center[0]-center_blob[0],center[1]-center_blob[1])
+
+        #Roll the mask and the source image to the new center
+        #mask = np.roll(mask,offset,axis=(0,1))
+        #src = np.roll(src,offset,axis=(0,1))
+
+        src_pil = Image.fromarray(src)
+        mask_pil = Image.fromarray(mask[:,:,0])
+        dst_pil = Image.fromarray(dst)
+
+        # Blend the images
+        dst_pil.paste(im = src_pil, mask = mask_pil,box = offset)
+        return dst_pil.copy(),mask_pil.copy()
+
+    def find_blob_center(self,mask):
+        # Find the contours in the mask
+        contours, _ = cv2.findContours(mask[:,:,0], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # If no contours were found, return None
+        if len(contours) == 0:
+            return None
+
+        # Find the largest contour by area
+        contour = max(contours, key=cv2.contourArea)
+
+        # Find the moments of the contour
+        moments = cv2.moments(contour)
+
+        # Calculate the x and y coordinates of the center of the contour
+        center_x = int(moments["m10"] / moments["m00"])
+        center_y = int(moments["m01"] / moments["m00"])
+
+        return (center_x, center_y)
+
+    def random_scale(self,image, mask, scale_range):
+        # Generate a random scale factor
+        scale_factor = np.random.uniform(*scale_range)
+
+        # Compute the scaled image
+        scaled_image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
+
+        # Compute the scaled mask
+        scaled_mask = cv2.resize(mask, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
+        return scaled_mask, scaled_image
+
+    def random_rotation_180(self,mask, img):
+        # Generate a random angle between 0 and 1
+        angle = np.random.randint(0, 2)
+
+        # Rotate the mask and image by 180 degrees if angle is 1
+        if angle == 1:
+            mask = cv2.rotate(mask, cv2.ROTATE_180)
+            img = cv2.rotate(img, cv2.ROTATE_180)
+            #print('test')
+        return mask, img
+
+    def random_clone_center(self,mask, dst):
+        # Get the size of the destination image
+        h, w = dst.shape[:2]
+        height, width, _ = np.where(mask > 0)
+
+        roi_height = (max(height) - min(height)) // 2
+        roi_width = (max(width) - min(width)) // 2
+
+        # Generate a random center point for the cloned region
+        x = np.random.randint(roi_width + 1, w - roi_width - 1)
+        y = np.random.randint(roi_height + 1, h - roi_height - 1)
+
+        #print(x, y)
+
+        # Add half the width and height of the region to the random point
+        center = (x, y)
+
+        return center
 
 class PoisonCopyPaste(BaseAugmentation):
 
@@ -149,7 +269,7 @@ class PoisonCopyPaste(BaseAugmentation):
         failed = 0
         while synthetic_image is None:
             try:
-                synthetic_image = self.poisson_blend(src, dst, mask)
+                synthetic_image,synthetic_mask = self.poisson_blend(src, dst, mask)
             except:
                 failed += 1
 
@@ -157,16 +277,37 @@ class PoisonCopyPaste(BaseAugmentation):
                 synthetic_image = src
                 break
         synthetic_image = Image.fromarray(np.uint8(synthetic_image))
-        return synthetic_image,image_with_fail_path
+        synthetic_mask = Image.fromarray(np.uint8(synthetic_mask))
+        if plot_image:
+            self.plot_image(mask,src,synthetic_image,dst)
+        return synthetic_image,image_with_fail_path,synthetic_mask
 
-    def poisson_blend(self,src, dst, mask):
+    def poisson_blend(self,src, dst, mask,gaussian = True):
         mask, src = self.random_rotation_180(mask, src)
         # print((src.shape,mask.shape))
-        scaled_mask, scaled_src = self.random_scale(src, mask, [0.7, 1])
+        scaled_mask, scaled_src = self.random_scale(src, mask, [0.9, 1])
         offset = self.random_clone_center(scaled_mask, dst)
         #print(offset)
         result = cv2.seamlessClone(scaled_src, dst, scaled_mask, offset, cv2.NORMAL_CLONE)
-        return result
+
+        self.plot_image(scaled_mask, scaled_src, result, dst)
+
+        if gaussian:
+            aug = GaussianCopyPaste()
+            g_aug,_,ofs = aug.eq_guassian_blend(scaled_src,dst,scaled_mask,offset)
+            # Pad the mask to the size of the target image
+            padded_mask = self.pad_mask(scaled_mask, dst)
+            padded_mask = np.roll(padded_mask, ofs, axis=(0, 1))
+            self.plot_image(padded_mask,scaled_src,g_aug,dst)
+            #plot_image(self,mask,image_with_fail,augmented_image,org_image):
+        return result, scaled_mask
+
+    def pad_mask(self, mask,dst):
+        max_widt, max_height =dst.shape[1], dst.shape[0]
+        width, height = image.shape[2], image.shape[1]
+        pad_widt, pad_height = max_widt - width, max_height - height
+
+        return image
 
     def random_scale(self,image, mask, scale_range):
         # Generate a random scale factor
