@@ -142,9 +142,17 @@ class GaussianCopyPaste(BaseAugmentation):
         mask_pil = Image.fromarray(mask[:, :, 0])
         dst_pil = Image.fromarray(dst)
 
+        # Create a zero array of shape dst
+        zero_mask = Image.fromarray(np.zeros(dst.shape[:2]))
+        # Paste the mask
+        zero_mask.paste(im=mask_pil, box=offset)
+
+        # Apply gasussian blur to mask
+        mask_pil = mask_pil.filter(ImageFilter.GaussianBlur(blur))
+
         # Blend the images
         dst_pil.paste(im=src_pil, mask=mask_pil, box=offset)
-        return dst_pil.copy(), mask_pil.copy(),offset
+        return dst_pil.copy(), mask_pil.copy(),offset,zero_mask.copy()
 
     def gaussian_blend(self,src, dst, mask, blur=5):
         """ Blend src and dst using a gaussian mask. """
@@ -270,14 +278,18 @@ class PoisonCopyPaste(BaseAugmentation):
         while synthetic_image is None:
             try:
                 synthetic_image,synthetic_mask = self.poisson_blend(src, dst, mask)
-            except:
+            except Exception as e:
                 failed += 1
+                return None,None,None
 
-            if failed > 10000:
-                synthetic_image = src
-                break
-        synthetic_image = Image.fromarray(np.uint8(synthetic_image))
-        synthetic_mask = Image.fromarray(np.uint8(synthetic_mask))
+            #if failed > 1000:
+            #    #This is in the rare case that it fails to blend 1000 times
+            #    synthetic_image = [Image.fromarray(src),Image.fromarray(src)]
+            #    synthetic_mask = Image.fromarray(mask)
+            #    print(failed)
+            #    break
+        #synthetic_image = Image.fromarray(np.uint8(synthetic_image))
+        #synthetic_mask = Image.fromarray(np.uint8(synthetic_mask))
         if plot_image:
             self.plot_image(mask,src,synthetic_image,dst)
         return synthetic_image,image_with_fail_path,synthetic_mask
@@ -289,24 +301,22 @@ class PoisonCopyPaste(BaseAugmentation):
         offset = self.random_clone_center(scaled_mask, dst)
         #print(offset)
         result = cv2.seamlessClone(scaled_src, dst, scaled_mask, offset, cv2.NORMAL_CLONE)
-
-        self.plot_image(scaled_mask, scaled_src, result, dst)
+        result = Image.fromarray(np.uint8(result))
+        #self.plot_image(scaled_mask, scaled_src, result, dst)
 
         if gaussian:
             aug = GaussianCopyPaste()
-            g_aug,_,ofs = aug.eq_guassian_blend(scaled_src,dst,scaled_mask,offset)
+            g_aug,_,ofs,new_mask = aug.eq_guassian_blend(scaled_src,dst,scaled_mask,offset)
+            new_mask = np.array(new_mask, dtype=np.uint8)
+            new_mask = Image.fromarray(new_mask)
             # Pad the mask to the size of the target image
-            padded_mask = self.pad_mask(scaled_mask, dst)
-            padded_mask = np.roll(padded_mask, ofs, axis=(0, 1))
-            self.plot_image(padded_mask,scaled_src,g_aug,dst)
-            #plot_image(self,mask,image_with_fail,augmented_image,org_image):
-        return result, scaled_mask
+        return [result,g_aug], new_mask
 
     def pad_mask(self, mask,dst):
         max_widt, max_height =dst.shape[1], dst.shape[0]
-        width, height = image.shape[2], image.shape[1]
+        width, height = mask.shape[2], mask.shape[1]
         pad_widt, pad_height = max_widt - width, max_height - height
-
+        image = np.pad(mask, ((0, 0), (0, pad_height), (0, pad_widt)), 'constant')
         return image
 
     def random_scale(self,image, mask, scale_range):
