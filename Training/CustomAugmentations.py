@@ -9,16 +9,23 @@ from torch import nn, Tensor
 from torchvision import ops
 
 # Randomly gamma correct image
-class RandomGammaCorrection(object):
-'''
-Apply Gamma Correction to the images
-'''
-def __init__(self, gamma_range=(0.5, 2.0)):
-    self.gamma_range = gamma_range
+class RandomGammaCorrection(nn.Module):
+    """
+    Apply Gamma Correction to the images
+    """
+    def __init__(self, gamma_range=(0.5, 2.0)):
+        self.gamma_range = gamma_range
 
-def __call__(self, img):
-    gamma = np.random.uniform(self.gamma_range[0], self.gamma_range[1])
-    return F.adjust_gamma(img, gamma)
+    def __call__(self, img):
+        #sample log uniformly in range [log(gamma_range[0]), log(gamma_range[1])]
+        gamma = np.random.uniform(self.gamma_range[0], self.gamma_range[1])
+        return F.adjust_gamma(img, gamma)
+
+    def forward(self, img):
+        return self.__call__(img)
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(gamma_range={0})'.format(self.gamma_range)
 
 #Random scale jitter
 class ScaleJitter(nn.Module):
@@ -36,7 +43,7 @@ class ScaleJitter(nn.Module):
     def __init__(
         self,
         target_size: Tuple[int, int],
-        scale_range: Tuple[float, float] = (0.1, 2.0),
+        scale_range: Tuple[float, float] = (0.1, 1.0),
         interpolation: InterpolationMode = InterpolationMode.BILINEAR,
     ):
         super().__init__()
@@ -72,3 +79,28 @@ class ScaleJitter(nn.Module):
 
         return image, target
 
+if __name__ == '__main__':
+
+
+    #Test the augmentations
+    from PIL import Image
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    #Load image
+    img = Image.open('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Serier/Series2/CellsCorr/Serie_2_ImageCorr_-1_3992_PC_Cell_Row1_Col_1.png')
+
+    #Convert to tensor
+    img_org = F.to_tensor(img)
+
+    #Create augmentations
+    aug = ScaleJitter((512, 512))
+    aug2 = RandomGammaCorrection()
+
+    #Apply augmentations
+    img_scale, _ = aug(img_org, None)
+    img_gamma = aug2(img_org)
+
+    #Convert to pil image
+    img_scale = F.to_pil_image(img_scale)
+    img_gamma = F.to_pil_image(img_gamma)
