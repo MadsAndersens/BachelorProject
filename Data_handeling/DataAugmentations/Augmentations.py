@@ -148,7 +148,13 @@ class GaussianCopyPaste(BaseAugmentation):
         zero_mask.paste(im=mask_pil, box=offset)
 
         # Apply gasussian blur to mask
-        mask_pil = mask_pil.filter(ImageFilter.GaussianBlur(blur))
+        #Zero pad the mask to avoid edge effects
+        mask = np.pad(mask,((blur,blur),(blur,blur),(0,0)),'constant')
+        mask = cv2.GaussianBlur(mask[:,:,0], (blur, blur), blur)
+        #Crop the mask to the original size
+        mask = mask[blur:-blur,blur:-blur]
+        mask_pil = Image.fromarray(mask)
+        #mask_pil = mask_pil.filter(ImageFilter.GaussianBlur(5)).copy()
 
         # Blend the images
         dst_pil.paste(im=src_pil, mask=mask_pil, box=offset)
@@ -280,6 +286,7 @@ class PoisonCopyPaste(BaseAugmentation):
                 synthetic_image,synthetic_mask = self.poisson_blend(src, dst, mask)
             except Exception as e:
                 failed += 1
+                print(e)
                 return None,None,None
 
             #if failed > 1000:
@@ -301,8 +308,9 @@ class PoisonCopyPaste(BaseAugmentation):
         offset = self.random_clone_center(scaled_mask, dst)
         #print(offset)
         result = cv2.seamlessClone(scaled_src, dst, scaled_mask, offset, cv2.NORMAL_CLONE)
+        result2 = cv2.seamlessClone(scaled_src, dst, scaled_mask, offset, cv2.MIXED_CLONE)
         result = Image.fromarray(np.uint8(result))
-        #self.plot_image(scaled_mask, scaled_src, result, dst)
+        result2 = Image.fromarray(np.uint8(result2))
 
         if gaussian:
             aug = GaussianCopyPaste()
@@ -310,7 +318,10 @@ class PoisonCopyPaste(BaseAugmentation):
             new_mask = np.array(new_mask, dtype=np.uint8)
             new_mask = Image.fromarray(new_mask)
             # Pad the mask to the size of the target image
-        return [result,g_aug], new_mask
+            #self.plot_image(scaled_mask, scaled_src, result, dst)
+            #self.plot_image(new_mask, scaled_src, result2, dst)
+            #self.plot_image(new_mask, scaled_src, g_aug, dst)
+        return [result,g_aug,result2], new_mask
 
     def pad_mask(self, mask,dst):
         max_widt, max_height =dst.shape[1], dst.shape[0]

@@ -228,8 +228,21 @@ elif architecture == 'vgg19':
     model = models.vgg19(pretrained=True)
 elif architecture == 'InceptionV3':
     model = models.inception_v3(pretrained=True)
+elif architecture == 'MobileNetV2':
+    model = models.mobilenet_v2(pretrained=True)
 
 # Make the modules for the different architectures
+class MobileNetModules(nn.Module):
+    def __init__(self, model):
+        super(MobileNetModules, self).__init__()
+        self.mobilenet = model
+        #Input size is 440x440x1
+        self.mobilenet.features[0][0] = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.mobilenet.classifier[1] = nn.Linear(1280, 2)
+
+    def forward(self, x):
+        x = self.mobilenet(x)
+        return x
 class ResnetModules(nn.Module):
     def __init__(self, model):
         super(ResnetModules, self).__init__()

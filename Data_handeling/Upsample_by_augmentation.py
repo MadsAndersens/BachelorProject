@@ -75,7 +75,7 @@ class Upsampler:
 
     def save_image(self,image,category,j,id,img_fail_path,mask):
         """ Save the image to the folder, and write the csv file."""
-        types = ['Poisson','Gaussian']
+        types = ['Poisson_Normal','Gaussian','Poisson_Mixed']
         # Naming stuff
         no_fault_name = id.split('/')[-1][:-4] # This crops down the path to the image name
         fault_name = img_fail_path.split('/')[-1][:-4]
@@ -104,7 +104,11 @@ class Upsampler:
 
     def init_csv(self,name, columns):
         base_dir = '/Users/madsandersen/PycharmProjects/BscProjektData'
-        with open(f'{base_dir}/BachelorProject/Data/Synthetic/Poisson/{name}', 'w') as f:
+        with open(f'{base_dir}/BachelorProject/Data/Synthetic/Poisson_Normal/{name}', 'w') as f:
+            f.write(','.join(columns))
+            f.write("\n")
+
+        with open(f'{base_dir}/BachelorProject/Data/Synthetic/Poisson_Mixed/{name}', 'w') as f:
             f.write(','.join(columns))
             f.write("\n")
         #For the Gaussian data
@@ -122,9 +126,9 @@ if __name__ == '__main__':
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
-    n_upsamples = {'Crack A': 21325,
-                   'Crack B': 21325,
-                   'Crack C': 21325,
-                   'Finger Failure': 21325}
+    n_upsamples = {'Crack A': 1000,
+                   'Crack B':1000,
+                   'Crack C': 1000,
+                   'Finger Failure': 1000}
     upsampler.run_upsample(n_upsamples)
 #21325
