@@ -56,7 +56,7 @@ def sort_data(mask_threshold=150):
                         mask = mask
                         # Get the name of the label
                         lab_name = ''.join(lab[0].split(' '))
-                        mask_dir = f'{base_dir}/BachelorProject/Data/VitusData/Masks/{image_name}_{lab_name}_{idx}.png'
+                        mask_dir = f'{base_dir}/BachelorProject/Data/VitusData/VitusStatsMask/{image_name}_{lab_name}_{idx}.png'
 
                         # Save the mask
                         Image.fromarray(mask[:,:,idx]*255 if len(mask.shape) > 2 else mask*255).save(mask_dir)
@@ -95,10 +95,13 @@ def sort_data(mask_threshold=150):
 
     # Save the data set as csv file and split the cols into lists before saving.
     data_set['Label'] = data_set.apply(lambda x: str(x['Label']).split('__') if x['Label'] is not None else None, axis = 1)
+    data_set['is_fault'] = data_set['Label'].apply(lambda x: 0 if 'Negative' in x else 1)
     data_set['MaskDir'] = data_set.apply(lambda x: str(x['MaskDir']).split('__') if x['MaskDir'] is not None else None, axis = 1)
-    data_set.to_csv(f'{base_dir}/BachelorProject/Data/VitusData/DataSet.csv', index=False)
+    print(len(data_set))
+    print(len(data_set['is_fault'][data_set['is_fault'] == 1] ))
+    data_set.to_csv(f'{base_dir}/BachelorProject/Data/VitusData/DataSetVitusStats.csv', index=False)
 
 
 if __name__ == '__main__':
-    sort_data(mask_threshold = 2100)
+    sort_data(mask_threshold = 410)
     from focal_loss.focal_loss import FocalLoss

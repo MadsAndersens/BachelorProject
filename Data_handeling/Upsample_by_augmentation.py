@@ -120,15 +120,15 @@ class Upsampler:
 
 if __name__ == '__main__':
     # Create upsample object
-    data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Train_expanded.csv')
+    data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/TrainVitusStatExpanded.csv')
 
     augmentation = [PoisonCopyPaste()]#[PoisonCopyPaste()]#PoisonCopyPaste()#gaussian_blend()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
     # Run upsample
-    n_upsamples = {'Crack A': 1000,
-                   'Crack B':1000,
-                   'Crack C': 1000,
-                   'Finger Failure': 1000}
+    n_upsamples = {'Crack A': 5000,
+                   'Crack B':5000,
+                   'Crack C': 5000,
+                   'Finger Failure': 5000}
     upsampler.run_upsample(n_upsamples)
 #21325
