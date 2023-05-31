@@ -67,7 +67,7 @@ class BaseAugmentation:
             mask = Image.composite(masks[i],mask,masks[i])
         return mask
 
-    def plot_image(self,mask,image_with_fail,augmented_image,org_image):
+    def plot_image(self,mask,image_with_fail,augmented_image,org_image,type):
         # Bare for at test
         fs = 20
         fig, ax = plt.subplots(1, 4, figsize=(20, 5))
@@ -87,6 +87,8 @@ class BaseAugmentation:
         ax[3].imshow(np.array(org_image), cmap='gray')
         ax[3].set_title("Target Image", fontsize=fs)
         ax[3].axis('off')
+
+        fig.suptitle(f'{type}')
         plt.show()
 
 class GaussianCopyPaste(BaseAugmentation):
@@ -318,9 +320,9 @@ class PoisonCopyPaste(BaseAugmentation):
             new_mask = np.array(new_mask, dtype=np.uint8)
             new_mask = Image.fromarray(new_mask)
             # Pad the mask to the size of the target image
-            #self.plot_image(scaled_mask, scaled_src, result, dst)
-            #self.plot_image(new_mask, scaled_src, result2, dst)
-            #self.plot_image(new_mask, scaled_src, g_aug, dst)
+            self.plot_image(new_mask, scaled_src, result, dst,type = 'Normal')
+            self.plot_image(new_mask, scaled_src, result2, dst,type = 'Mixed')
+            self.plot_image(new_mask, scaled_src, g_aug, dst,type = 'Gaussian')
         return [result,g_aug,result2], new_mask
 
     def pad_mask(self, mask,dst):
