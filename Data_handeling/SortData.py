@@ -103,5 +103,6 @@ def sort_data(mask_threshold=150):
 
 
 if __name__ == '__main__':
+    # This is where the thresholding is done for the masks to be included in the data set
     sort_data(mask_threshold = 410)
     from focal_loss.focal_loss import FocalLoss

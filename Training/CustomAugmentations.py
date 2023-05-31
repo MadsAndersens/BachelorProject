@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +6,39 @@ from torchvision.transforms import functional as F, InterpolationMode, transform
 import numpy as np
 from torch import nn, Tensor
 from torchvision import ops
+from PIL import Image
+from torch.utils.data import Dataset
+import torchvision.transforms as transforms
+import pandas as pd
+
+#Since pytorch does not support labelsmooth for bce loss
+class LabelSmoothBCELoss(nn.Module):
+    def __init__(self, smoothing=0.1):
+        super(LabelSmoothBCELoss, self).__init__()
+        self.smoothing = smoothing
+        self.bce_loss = nn.BCELoss(reduction='mean')
+    def forward(self, output, target):
+        target = target * (1 - self.smoothing) + 0.5 * self.smoothing
+        loss = self.bce_loss(output, target)
+        return loss
+
+class GaussianNoise(nn.Module):
+    def __init__(self, mean=0, std=0.1):
+        self.mean = mean
+        self.std = std
+
+    def forward(self, image):
+        noise = torch.randn_like(image) * self.std + self.mean
+        noisy_image = image + noise
+        noisy_image = torch.clamp(noisy_image, 0, 1)  # Clip values between 0 and 1
+        return noisy_image
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+    def __call__(self, image):
+        return self.forward(image)
+
 
 # Randomly gamma correct image
 class RandomGammaCorrection(nn.Module):
@@ -26,81 +58,177 @@ class RandomGammaCorrection(nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + '(gamma_range={0})'.format(self.gamma_range)
+        
+class ZeroPad(nn.Module):
+    def __init__(self, size):
+        self.size = size
 
-#Random scale jitter
-class ScaleJitter(nn.Module):
-    """Randomly resizes the image and its bounding boxes  within the specified scale range.
-    The class implements the Scale Jitter augmentation as described in the paper
-    `"Simple Copy-Paste is a Strong Data Augmentation Method for Instance Segmentation" <https://arxiv.org/abs/2012.07177>`_.
-    Args:
-        target_size (tuple of ints): The target size for the transform provided in (height, weight) format.
-        scale_range (tuple of ints): scaling factor interval, e.g (a, b), then scale is randomly sampled from the
-            range a <= scale <= b.
-        interpolation (InterpolationMode): Desired interpolation enum defined by
-            :class:`torchvision.transforms.InterpolationMode`. Default is ``InterpolationMode.BILINEAR``.
-    """
+    def __call__(self, image):
+        max_widt, max_height = self.size[0],self.size[1]
+        width, height = image.shape[2], image.shape[1]
+        pad_widt, pad_height = max_widt - width, max_height - height
+        image = transforms.Pad((0,0, pad_widt, pad_height), padding_mode='constant')(image)
+        return image
+        
+    def forward(self, img):
+        return self.__call__(img)
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(size={0})'.format(self.size)
+        
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
 
-    def __init__(
-        self,
-        target_size: Tuple[int, int],
-        scale_range: Tuple[float, float] = (0.1, 1.0),
-        interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-    ):
-        super().__init__()
-        self.target_size = target_size
-        self.scale_range = scale_range
-        self.interpolation = interpolation
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
 
-    def forward(
-        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
-    ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
-        if isinstance(image, torch.Tensor):
-            if image.ndimension() not in {2, 3}:
-                raise ValueError(f"image should be 2/3 dimensional. Got {image.ndimension()} dimensions.")
-            elif image.ndimension() == 2:
-                image = image.unsqueeze(0)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
 
-        _, orig_height, orig_width = F.get_dimensions(image)
-
-        scale = self.scale_range[0] + torch.rand(1) * (self.scale_range[1] - self.scale_range[0])
-        r = min(self.target_size[1] / orig_height, self.target_size[0] / orig_width) * scale
-        new_width = int(orig_width * r)
-        new_height = int(orig_height * r)
-
-        image = F.resize(image, [new_height, new_width], interpolation=self.interpolation)
-
-        if target is not None:
-            target["boxes"][:, 0::2] *= new_width / orig_width
-            target["boxes"][:, 1::2] *= new_height / orig_height
-            if "masks" in target:
-                target["masks"] = F.resize(
-                    target["masks"], [new_height, new_width], interpolation=InterpolationMode.NEAREST
-                )
-
-        return image, target
-
-if __name__ == '__main__':
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
-    #Test the augmentations
-    from PIL import Image
-    import matplotlib.pyplot as plt
-    import numpy as np
+#PVLEAD dataset
+class PVLEAD(Dataset):
 
-    #Load image
-    img = Image.open('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/Serier/Series2/CellsCorr/Serie_2_ImageCorr_-1_3992_PC_Cell_Row1_Col_1.png')
+    def __init__(self, transform=None):
+        self.data_set = pd.read_csv('/work3/s204137/PVLEAD/PVLEAD_dataset.csv')
+        self.transform = transform
+        self.root = '/work3/s204137/PVLEAD/JPEGImages'
 
-    #Convert to tensor
-    img_org = F.to_tensor(img)
+    def __len__(self):
+        return len(self.data_set)
 
-    #Create augmentations
-    aug = ScaleJitter((512, 512))
-    aug2 = RandomGammaCorrection()
+    def __getitem__(self, idx):
+        img_name = self.data_set['file_name'].iloc[idx]
+        img_name = f'{self.root}/{img_name}'
+        image = Image.open(img_name)
+        image = transforms.ToTensor()(image)*255
+        
+        image = self.pad_image(image)
 
-    #Apply augmentations
-    img_scale, _ = aug(img_org, None)
-    img_gamma = aug2(img_org)
+        # Make three channels
+        #image = torch.cat((image, image, image), 0)
 
-    #Convert to pil image
-    img_scale = F.to_pil_image(img_scale)
-    img_gamma = F.to_pil_image(img_gamma)
+        label = self.data_set['defect'].iloc[idx]
+        label = self.one_hot_encode(label)
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        sample = {'image': image, 'label': label}
+        return sample
+
+    def one_hot_encode(self, label):
+        # One hot encoding
+        place_holder = torch.tensor([0, 0], dtype=torch.float32)
+
+        if 'Negative' in label:
+            place_holder[0] = 1
+        else:
+            place_holder[1] = 1
+
+        return place_holder
+
+    def pad_image(self, image):
+        max_widt, max_height = 430, 430
+        width, height = image.shape[2], image.shape[1]
+        pad_widt, pad_height = max_widt - width, max_height - height
+        image = transforms.Pad((0, 0, pad_widt, pad_height), padding_mode='constant')(image)
+        return image
+
+
+class SolarELDataSynTest(Dataset):
+
+    def __init__(self,synthetic_dataframe,syn_type, transform=None):
+        self.synthetic_data_set = synthetic_dataframe
+        self.syn_type = syn_type
+
+        # Create variable in both indicating if the image is synthetic or not
+        self.synthetic_data_set['Synthetic'] = True
+
+        # Set the roots
+        if self.syn_type == 'Mixed':
+            self.syn_root_gaussian = f'/work3/s204137/SyntheticTestSet/Gaussian'
+            self.syn_root_poisson = f'/work3/s204137/SyntheticTestSet/Poisson'
+
+        self.syn_root = f'/work3/s204137/SyntheticTestSet/{self.syn_type}'  # '/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject'
+
+        # Append the synthetic data set to the original data set
+        self.data_set = self.synthetic_data_set
+        self.transform = transform
+
+        # Synthetic data is stored in a different folder so create a variable in the dataframes containing the root
+        self.data_set['root'] = self.syn_root
+        self.classes = ['Positive', 'Negative']
+
+    def __len__(self):
+        return len(self.data_set)
+
+    def __getitem__(self, idx):
+
+        is_synthetic = self.data_set['Synthetic'].iloc[idx]
+
+        img_name = self.data_set['ImageDir'].iloc[idx][23:]
+
+        # Use the different roots
+        if self.syn_type == 'Mixed':
+           img_name_G = f'{self.syn_root_gaussian}/{img_name}'
+           img_name_P = f'{self.syn_root_poisson}/{img_name}'
+
+        else:
+           img_name = f'{self.syn_root}{img_name}'
+
+        # Open the image
+        if self.syn_type == 'Mixed' and is_synthetic:
+            try:
+                image = Image.open(img_name_G)
+            except:
+                image = Image.open(img_name_P)
+        else:
+            image = Image.open(img_name)
+
+        image = transforms.ToTensor()(image) * 255
+
+
+        image = self.pad_image(image)
+
+        # Make three channels
+        if image.shape[0] == 1:
+            image = torch.cat((image, image, image), 0)
+
+        label = self.data_set['Label'].iloc[idx]
+        label = self.one_hot_encode(label if not is_synthetic else [label])
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        sample = {'image': image, 'label': label}
+        return sample
+
+    def one_hot_encode(self, label):
+        # One hot encoding
+        place_holder = torch.tensor([0, 0], dtype=torch.float32)
+
+        if 'Negative' == label:
+            place_holder[0] = 1
+        else:
+            place_holder[1] = 1
+
+        return place_holder
+
+    def pad_image(self, image):
+        max_widt, max_height = 430, 430
+        width, height = image.shape[2], image.shape[1]
+        pad_widt, pad_height = max_widt - width, max_height - height
+        image = transforms.Pad((0, 0, pad_widt, pad_height), padding_mode='constant')(image)
+        return image

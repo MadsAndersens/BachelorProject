@@ -255,7 +255,7 @@ class GaussianCopyPaste(BaseAugmentation):
 
         return center
 
-class PoisonCopyPaste(BaseAugmentation):
+class PoisonAndGaussCopyPaste(BaseAugmentation):
 
     def __init__(self):
         super().__init__()

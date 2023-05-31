@@ -83,5 +83,4 @@ def create_data_set():
 
 if __name__ == '__main__':
     fault_set,cropped_set = create_data_set()
-
     #print(fault_set['CrackA']['-10_4081_Cell_Row4_Col_2'][0][0])

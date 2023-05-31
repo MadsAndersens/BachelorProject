@@ -1,5 +1,5 @@
 import pandas as pd
-from BachelorProject.Data_handeling.DataAugmentations.Augmentations import GaussianCopyPaste,PoisonCopyPaste
+from BachelorProject.Data_handeling.DataAugmentations.Augmentations import GaussianCopyPaste,PoisonAndGaussCopyPaste
 import numpy as np
 from PIL import Image
 from utils import base_dir
@@ -122,13 +122,15 @@ if __name__ == '__main__':
     # Create upsample object
     data_set = pd.read_csv('/Users/madsandersen/PycharmProjects/BscProjektData/BachelorProject/Data/VitusData/TestVitusStatExpanded.csv')
 
-    augmentation = [PoisonCopyPaste()]#[PoisonCopyPaste()]#PoisonCopyPaste()#gaussian_blend()#PoisonCopyPaste() #PoisonCopyPaste() #GaussianCopyPaste()
+    #Some update to the overall pipeline made it easier to collect both copy-paste augmentations in the same class.
+    augmentation = [PoisonAndGaussCopyPaste()]
+
+    #Initialize the upsample object
     upsampler = Upsampler(augmentation,save_path = f'{base_dir}/BachelorProject/Data/Synthetic',data_set = data_set)
 
-    # Run upsample
+    # Run upsample, select the amount of upsamples for each category.
     n_upsamples = {'Crack A': 0,
                    'Crack B':0,
                    'Crack C': 0,
                    'Finger Failure': 5}
     upsampler.run_upsample(n_upsamples)
-#21325
