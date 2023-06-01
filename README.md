@@ -36,7 +36,7 @@ In conclusion, our study demonstrates the feasibility of leveraging Deep Convolu
 to automate the inspection of solar panels. While our approach achieved satisfactory performance, it is clear
 that more data is required to reach higher performance levels and ensure a more robust predictor.
 
-This GitHub repository contains the code used in our research. For data ask: s204137@dtu.dk
+This GitHub repository contains the code used in our research. For data contact: s204137@dtu.dk
 
 ## Results
 
